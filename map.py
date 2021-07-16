@@ -70,8 +70,8 @@ st.image(image, caption = 'Anak Krakatau volcano, Sunda Strait, Indonesia')
 
 # Add a Streamlit Subheader and
 # printout the DF2 dataframe into the webpage
-st.subheader("All Volcano Eruption Data")
-st.dataframe(DF1)
+st.subheader(f"Volcano Eruption Data for {countrySelection}")
+st.dataframe(DF1['Country'] == countrySelection)
 
 # Add another Subheader for the Volcano mapped
 # locations
