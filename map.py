@@ -5,10 +5,26 @@ import pydeck as pdk
 from PIL import Image
 import plotly.express as px
 import random
+import webbrowser
 
 pd.set_option('display.max_columns', 2000)
 pd.set_option('display.max_rows', 2000)
 pd.set_option('display.width', 2000)
+
+def setRadius(zFactor = 3):
+    if zFactor == 3:
+        cRadius = 80000
+    elif zFactor == 4:
+        cRadius = 40000
+    elif zFactor == 5:
+        cRadius = 20000
+    elif zFactor == 6:
+        cRadius = 10000
+    elif zFactor == 7:
+        cRadius = 5000
+    elif zFactor == 8:
+        cRadius = 2500
+    return cRadius
 
 # Not required any more
 #MAPKEY = "pk.eyJ1IjoiY2hlY2ttYXJrIiwiYSI6ImNrOTI0NzU3YTA0azYzZ21rZHRtM2tuYTcifQ.6aQ9nlBpGbomhySWPF98DApk.eyJ1IjoiY2hlY2ttYXJrIiwiYSI6ImNrOTI0NzU3YTA0azYzZ21rZHRtM2tuYTcifQ.6aQ9nlBpGbomhySWPF98DA"
@@ -18,15 +34,16 @@ df = pd.read_csv('volcanoes.csv', encoding = 'Latin-1')
 
 # Create a new DataFrame called DF1 to pull out
 # only the columns of data I want to use.
-DF1 = pd.DataFrame(df, columns=['Country','Volcano Name','PrimaryVolcanoType','Latitude','Longitude'])
+DF1 = pd.DataFrame(df, columns=['Country','VolcanoName','PrimaryVolcanoType','Elevation','Latitude','Longitude','Link'])
 
 # Sort the data in the data frame by the Country and
 # Volcano Name columns in the DF1 dataframe
-DF1 = DF1.sort_values(by = ['Country', 'Volcano Name'])
+DF1 = DF1.sort_values(by = ['Country', 'VolcanoName'])
 
 # Create a list using the Pandas unique function
 # of all the unique country names
 countryList = sorted(DF1.Country.unique())
+
 volcanoType = sorted(DF1.PrimaryVolcanoType.unique())
 
 # Get the index value from the countryList
@@ -36,20 +53,33 @@ defaultCountry = countryList.index('Indonesia')
 defaultType = volcanoType.index('Stratovolcano')
 # Create a Sidebar with the Header "Input"
 st.sidebar.header('Inputs')
+countrySelection = st.sidebar.selectbox("Select a Country: ", list(countryList), index = defaultCountry)
+DF1 = DF1.sort_values(by = ['Country', 'VolcanoName'])
 
 # Add a SelectBox with all the volcano countries
 # with the country Indonesia selected.
-countrySelection = st.sidebar.selectbox("Select a Country: ", list(countryList), index = defaultCountry)
+
 #typeSelection = st.sidebar.selectbox("Select a Volcano Type: ", list(volcanoType), index = defaultType)
 # Create a Slider in the Sidebar that is used
 # to control the Zoom factor (0 - 6), the default is 3
-z2 = st.sidebar.slider('Map: Zoom Factor',min_value = 0, max_value = 10, value = 3)
+DF2 = DF1[DF1['Country'] == countrySelection] 
+volcanoList = sorted(DF2.VolcanoName.unique())
+volcanoSelection = st.sidebar.selectbox("Select a Volcano: ", list(volcanoList))
+z2 = st.sidebar.slider('Map: Zoom Factor',min_value = 3, max_value = 8, value = 4)
+
+DF3 = DF2[DF2['VolcanoName'] == volcanoSelection]
+
 
 # Create a new Pandas DataFrame called DF2
 # that be used to plot the volcanos from the
 # selected country from SelectBox
-DF2 = DF1[DF1['Country'] == countrySelection] 
 
+lat = DF3.iloc[0]['Latitude']
+long = DF3.iloc[0]['Longitude']
+url = DF3.iloc[0]['Link']
+print(DF3)
+print(lat)
+print(long)
 # Build name values and data values into
 # lists that are used to create the Pie
 # Chart for the volcano types in a country.
@@ -81,8 +111,8 @@ st.subheader(f"Volcano Eruption Mapping in {countrySelection}")
 # that will displayed on the webpage
 # Used in the pyDeck Deck function
 view_state = pdk.ViewState(
-    latitude = DF2["Latitude"].mean(),
-    longitude = DF2["Longitude"].mean(),
+    latitude = lat, #DF2["Latitude"].mean(),
+    longitude = long, #DF2["Longitude"].mean(),
     zoom = z2)
 
 # Define the Layer as a ScatterplotLayer
@@ -94,14 +124,23 @@ layer1 = pdk.Layer('ScatterplotLayer',
                   pickable = True,
                   opacity = 0.10,
                   get_position = '[Longitude,Latitude]',
-                  get_radius = 15000,
-                  get_color=[255,119,51],
+                  get_radius = setRadius(z2),
+                  get_color=[0,128,255],
+                  )
+
+layer2 = pdk.Layer('ScatterplotLayer',
+                  data = DF3,
+                  pickable = True,
+                  opacity = 0.25,
+                  get_position = '[Longitude,Latitude]',
+                  get_radius = setRadius(z2),
+                  get_color=[255,255,0],
                   )
 
 # Define a tool tip that pops up over
 # a volcano location with:
 # Volcano name, Volcano type, Lat and Long values
-tool_tip = {"html": "<b>Volcano Name:</b><br/> {Volcano Name} <br/>Type: {PrimaryVolcanoType} <br/>Lat: {Latitude} Long: {Longitude}",
+tool_tip = {"html": "<b>Volcano Name:</b> {VolcanoName} <br/>Type: {PrimaryVolcanoType} <br/>Elevation: {Elevation} meters",
             "style": { "backgroundColor": "steelblue",
                         "color": "black"}
           }
@@ -110,8 +149,8 @@ tool_tip = {"html": "<b>Volcano Name:</b><br/> {Volcano Name} <br/>Type: {Primar
 # defines the map style, layers, view state,
 # and the tooltip objects.
 map = pdk.Deck(
-    map_style='mapbox://styles/mapbox/outdoors-v11',
-    layers = [layer1],
+    map_style='mapbox://styles/mapbox/dark-v10',
+    layers = [layer1, layer2],
     initial_view_state = view_state,
     tooltip = tool_tip
 )
@@ -120,8 +159,9 @@ map = pdk.Deck(
 # object and displays the all the
 # Streamlit objects on the webpage
 st.pydeck_chart(map)
-
-st.subheader(f"Volcano Types By Percentage in {countrySelection}")
+st.info(f'For more information on the volcano **{volcanoSelection}**, click on the link below:')
+st.markdown(url, unsafe_allow_html=True)
+st.subheader(f"\nVolcano Types By Percentage in {countrySelection}")
 fig = px.pie(d, values=valueslist, names=keyslist)
 st.plotly_chart(fig)
 
