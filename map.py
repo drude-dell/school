@@ -1,11 +1,9 @@
 import pandas as pd
-import numpy as np
 import streamlit as st
 import pydeck as pdk
 from PIL import Image
 import plotly.express as px
 import random
-import webbrowser
 
 pd.set_option('display.max_columns', 2000)
 pd.set_option('display.max_rows', 2000)
